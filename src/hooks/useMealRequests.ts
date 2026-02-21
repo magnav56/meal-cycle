@@ -1,13 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { MealRequest, RequestItem, Recipe } from "@/lib/types";
-
-export function useRecipes() {
-  return useQuery({
-    queryKey: ["recipes"],
-    queryFn: () => api.get<Recipe[]>("/api/recipes"),
-  });
-}
+import { MealRequest, RequestItem } from "@/lib/types";
 
 export function useMealRequests() {
   return useQuery({

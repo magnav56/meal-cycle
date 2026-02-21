@@ -8,9 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { PageControls } from "@/components/PageControls";
-import { DIET_OPTIONS, ALLERGY_OPTIONS, CLINICAL_STATE_OPTIONS, Patient } from "@/lib/types";
+import { DIET_OPTIONS, ALLERGY_OPTIONS, CLINICAL_STATE_OPTIONS, type Patient } from "@/lib/types";
 import { UserPlus, Edit2, AlertTriangle, Search, Activity } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/useToast";
 
 const PAGE_SIZE = 9;
 
@@ -49,10 +49,12 @@ export function PatientPanel() {
     return patients.find(
       (p) =>
         p.name.trim().toLowerCase() === name &&
-        (p.room_number || "").trim().toLowerCase() === room &&
-        p.id !== editPatient?.id
+        (p.room_number ?? "").trim().toLowerCase() === room &&
+        p.id !== editPatient?.id,
     ) ?? null;
   }, [patients, form.name, form.room_number, editPatient]);
+
+  const isMutating = createPatient.isPending || updatePatient.isPending;
 
   const handleSubmit = async () => {
     try {
@@ -73,7 +75,7 @@ export function PatientPanel() {
 
   const openEdit = (p: Patient) => {
     setEditPatient(p);
-    setForm({ name: p.name, room_number: p.room_number || "", diet_order: p.diet_order, allergies: p.allergies, clinical_state: p.clinical_state || "Stable" });
+    setForm({ name: p.name, room_number: p.room_number ?? "", diet_order: p.diet_order, allergies: p.allergies, clinical_state: p.clinical_state || "Stable" });
     setOpen(true);
   };
 
@@ -88,7 +90,7 @@ export function PatientPanel() {
     if (!patients) return [];
     const q = search.toLowerCase();
     return patients.filter((p) => {
-      const matchSearch = !q || p.name.toLowerCase().includes(q) || (p.room_number || "").toLowerCase().includes(q);
+      const matchSearch = !q || p.name.toLowerCase().includes(q) || (p.room_number ?? "").toLowerCase().includes(q);
       const matchDiet = dietFilter === "all" || p.diet_order === dietFilter;
       const matchState = stateFilter === "all" || p.clinical_state === stateFilter;
       return matchSearch && matchDiet && matchState;
@@ -176,17 +178,27 @@ export function PatientPanel() {
               </div>
               <div className="space-y-2">
                 <Label>Allergies</Label>
-                <div className="flex flex-wrap gap-2">
-                  {ALLERGY_OPTIONS.map((a) => (
-                    <Badge
-                      key={a}
-                      variant={form.allergies.includes(a) ? "destructive" : "outline"}
-                      className="cursor-pointer select-none"
-                      onClick={() => toggleAllergy(a)}
-                    >
-                      {a}
-                    </Badge>
-                  ))}
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Allergy selection">
+                  {ALLERGY_OPTIONS.map((a) => {
+                    const selected = form.allergies.includes(a);
+                    return (
+                      <button
+                        key={a}
+                        type="button"
+                        role="switch"
+                        aria-checked={selected}
+                        className="inline-flex items-center"
+                        onClick={() => toggleAllergy(a)}
+                      >
+                        <Badge
+                          variant={selected ? "destructive" : "outline"}
+                          className="cursor-pointer select-none"
+                        >
+                          {a}
+                        </Badge>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               {duplicatePatient && (
@@ -201,7 +213,7 @@ export function PatientPanel() {
               <Button
                 onClick={handleSubmit}
                 className="w-full bg-clinical text-clinical-foreground hover:bg-clinical/90"
-                disabled={!form.name.trim() || !form.room_number.trim() || !!duplicatePatient}
+                disabled={!form.name.trim() || !form.room_number.trim() || !!duplicatePatient || isMutating}
               >
                 {editPatient ? "Update Patient" : "Admit Patient"}
               </Button>
@@ -274,14 +286,14 @@ export function PatientPanel() {
           <p className="text-xs text-muted-foreground">
             {filtered.length} patient{filtered.length !== 1 ? "s" : ""} found
           </p>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" style={{ gridAutoRows: "minmax(4.5rem, auto)" }}>
             {paginated.map((p) => (
               <Card key={p.id} className="border-l-4 border-l-clinical">
                 <CardContent className="px-3 py-2.5">
                   <div className="flex items-start justify-between gap-1">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">Room {p.room_number || "—"}</p>
+                      <p className="text-xs text-muted-foreground">Room {p.room_number ?? "—"}</p>
                       <div className="flex flex-wrap gap-1 mt-1.5 items-center">
                         <Badge variant="secondary" className="text-xs">
                           {p.diet_order}
@@ -309,29 +321,13 @@ export function PatientPanel() {
                       size="icon"
                       className="h-7 w-7 flex-shrink-0 -mr-1"
                       onClick={() => openEdit(p)}
+                      aria-label={`Edit ${p.name}`}
                     >
                       <Edit2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </CardContent>
               </Card>
-            ))}
-            {Array.from({ length: PAGE_SIZE - paginated.length }, (_, i) => (
-              <div key={`ph-${i}`} className="invisible pointer-events-none" aria-hidden="true">
-                <Card className="border-l-4">
-                  <CardContent className="px-3 py-2.5">
-                    <div className="flex items-start justify-between gap-1">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium">&nbsp;</p>
-                        <p className="text-xs">&nbsp;</p>
-                        <div className="flex flex-wrap gap-1 mt-1.5 items-center">
-                          <Badge variant="secondary" className="text-xs">&nbsp;</Badge>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
             ))}
           </div>
           <PageControls page={page} totalPages={totalPages} onPage={setPage} />

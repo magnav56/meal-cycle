@@ -1,6 +1,6 @@
 ---
 name: safety-validation
-description: Documents the meal request safety validation pipeline — how allergen and diet compatibility checks work across the backend and frontend. Use when modifying validation rules, debugging rejected requests, or adding new safety checks.
+description: Documents the meal request safety validation pipeline — how allergen and diet compatibility checks work across the backend and frontend. Use when modifying validation rules, debugging validation errors, or adding new safety checks.
 ---
 
 # Safety Validation Pipeline
@@ -20,7 +20,7 @@ MealFlow validates every meal request against the patient's allergies and diet o
 3. **Allergen check**: for each recipe, every item in `recipe.allergens[]` is checked against `patient.allergies[]`. Any match is a violation.
 4. **Diet check**: if a recipe has `diet_tags[]`, the patient's `diet_order` must appear in that array. If not, it's a violation.
 5. **Outcome**:
-   - **Violations found** → request saved as `status: 'Rejected'` with `rejection_reason`, items still recorded. Returns **422** with `{ error, request }`.
+   - **Violations found** → transaction is rolled back, nothing is persisted. Returns **422** with `{ error }`.
    - **No violations** → request saved as `status: 'Finalized'`, items recorded, a tray is created. Returns **201**.
 6. **Client** shows validation errors in an `Alert` component inside the meal request dialog, or shows a success toast.
 
@@ -57,6 +57,6 @@ Diet tags use an **inclusion model**: if a recipe has any `diet_tags`, the patie
 ## Common Pitfalls
 
 - Validation runs **server-side only** — the frontend does not pre-filter recipes by compatibility
-- Rejected requests are still persisted (with their items) for audit purposes
+- Failed validations are **not persisted** — only successfully finalized requests are stored
 - The transaction ensures atomicity: if the tray insert fails, the entire request is rolled back
 - Allergen/diet strings are case-sensitive and must match the values in `ALLERGY_OPTIONS` / `DIET_OPTIONS`

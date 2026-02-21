@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { usePatients } from "@/hooks/usePatients";
-import { useRecipes, useMealRequests, useCreateMealRequest, useRequestItems } from "@/hooks/useMealRequests";
+import { useRecipes } from "@/hooks/useRecipes";
+import { useMealRequests, useCreateMealRequest, useRequestItems } from "@/hooks/useMealRequests";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PageControls } from "@/components/PageControls";
 import { ClipboardPlus, AlertTriangle, Check, Search, ChevronDown, ChevronUp } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/useToast";
+import { formatDateTime } from "@/lib/utils";
 
 const PAGE_SIZE = 8;
 
@@ -25,7 +27,7 @@ function ExpandedDetail({ requestId }: { requestId: string }) {
         <div className="space-y-1">
           {items.map((item) => (
             <div key={item.id} className="text-sm text-foreground">
-              • {item.recipes?.name}
+              • {item.recipe?.name}
             </div>
           ))}
         </div>
@@ -52,10 +54,16 @@ export function MealRequestPanel() {
   const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const allPatients = patients || [];
+  const allPatients = patients ?? [];
 
   const toggleRecipe = (id: string) => {
     setSelectedRecipes((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  };
+
+  const resetDialog = () => {
+    setPatientId("");
+    setSelectedRecipes([]);
+    setError(null);
   };
 
   const handleSubmit = async () => {
@@ -64,12 +72,11 @@ export function MealRequestPanel() {
       await createRequest.mutateAsync({ patientId, recipeIds: selectedRecipes });
       toast({ title: "Meal request finalized", description: "A tray has been created for the kitchen." });
       setOpen(false);
-      setPatientId("");
-      setSelectedRecipes([]);
+      resetDialog();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setError(msg);
-      toast({ title: "Request rejected", description: "See details in the form.", variant: "destructive" });
+      toast({ title: "Validation failed", description: "See details in the form.", variant: "destructive" });
     }
   };
 
@@ -77,8 +84,7 @@ export function MealRequestPanel() {
     if (!requests) return [];
     const q = search.toLowerCase();
     return requests.filter((r) => {
-      const matchSearch = !q || (r.patients?.name || "").toLowerCase().includes(q);
-      return r.status === "Finalized" && matchSearch;
+      return !q || (r.patient?.name ?? "").toLowerCase().includes(q);
     });
   }, [requests, search]);
 
@@ -95,7 +101,13 @@ export function MealRequestPanel() {
           <h2 className="text-xl font-semibold text-foreground">Meal Requests</h2>
           <p className="text-sm text-muted-foreground">Create and manage meal orders for patients</p>
         </div>
-        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setError(null); }}>
+        <Dialog
+          open={open}
+          onOpenChange={(o) => {
+            setOpen(o);
+            if (!o) resetDialog();
+          }}
+        >
           <DialogTrigger asChild>
             <Button className="bg-meal text-meal-foreground hover:bg-meal/90">
               <ClipboardPlus className="mr-2 h-4 w-4" /> New Request
@@ -115,7 +127,7 @@ export function MealRequestPanel() {
                   <SelectContent>
                     {allPatients.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
-                        {p.name} — Room {p.room_number || "?"} ({p.diet_order})
+                        {p.name} — Room {p.room_number ?? "?"} ({p.diet_order})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -194,7 +206,7 @@ export function MealRequestPanel() {
       ) : !filtered.length ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            {requests?.length ? "No requests match your filters." : "No meal requests yet."}
+            {requests?.length ? "No requests match your search." : "No meal requests yet."}
           </CardContent>
         </Card>
       ) : (
@@ -209,12 +221,13 @@ export function MealRequestPanel() {
                   <button
                     className="w-full flex items-center justify-between gap-3 text-left"
                     onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
+                    aria-expanded={expandedId === r.id}
                   >
                     <div className="flex items-center gap-3">
                       <Check className="h-4 w-4 text-success shrink-0" />
                       <div>
-                        <p className="text-sm font-medium">{r.patients?.name || "Unknown"}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString()}</p>
+                        <p className="text-sm font-medium">{r.patient?.name ?? "Unknown"}</p>
+                        <p className="text-xs text-muted-foreground">{formatDateTime(r.created_at)}</p>
                       </div>
                     </div>
                     {expandedId === r.id ? (

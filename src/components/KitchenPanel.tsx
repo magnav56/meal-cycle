@@ -5,17 +5,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TRAY_STATUSES, Tray } from "@/lib/types";
+import { TRAY_STATUSES, type Tray } from "@/lib/types";
 import { PageControls } from "@/components/PageControls";
 import { ChefHat, Search, ChevronDown, ChevronUp, ArrowRight } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/useToast";
+import { formatTime } from "@/lib/utils";
 
 const PAGE_SIZE = 8;
 
 function TrayTimeline({ tray }: { tray: Tray }) {
   const currentIdx = TRAY_STATUSES.indexOf(tray.status);
   return (
-    <div className="flex items-center gap-1 mt-2">
+    <div className="flex items-center gap-1 mt-2" role="progressbar" aria-valuenow={currentIdx + 1} aria-valuemin={1} aria-valuemax={TRAY_STATUSES.length} aria-label={`Tray status: ${tray.status}`}>
       {TRAY_STATUSES.map((s, i) => (
         <div key={s} className="flex items-center gap-1">
           <div
@@ -45,14 +46,14 @@ function ExpandedDetail({ tray }: { tray: Tray }) {
     <div className="px-4 pb-3 pt-2 border-t border-border/50 space-y-3">
       <div>
         <p className="text-xs font-medium text-muted-foreground mb-1">Diet</p>
-        <p className="text-sm">{tray.meal_requests?.patients?.diet_order || "—"}</p>
+        <p className="text-sm">{tray.meal_request?.patient?.diet_order ?? "—"}</p>
       </div>
       <div>
         <p className="text-xs font-medium text-muted-foreground mb-1">Items</p>
         {items?.length ? (
           <div className="space-y-1">
             {items.map((item) => (
-              <div key={item.id} className="text-sm">• {item.recipes?.name}</div>
+              <div key={item.id} className="text-sm">• {item.recipe?.name}</div>
             ))}
           </div>
         ) : (
@@ -65,7 +66,7 @@ function ExpandedDetail({ tray }: { tray: Tray }) {
           {timestamps.map((t) => (
             <div key={t.label} className="text-sm flex justify-between">
               <span className="text-muted-foreground">{t.label}</span>
-              <span>{t.value ? new Date(t.value).toLocaleTimeString() : "—"}</span>
+              <span>{formatTime(t.value)}</span>
             </div>
           ))}
         </div>
@@ -97,8 +98,8 @@ export function KitchenPanel() {
     if (!trays) return [];
     const q = search.toLowerCase();
     return trays.filter((t) => {
-      const name = t.meal_requests?.patients?.name || "";
-      const room = t.meal_requests?.patients?.room_number || "";
+      const name = t.meal_request?.patient?.name ?? "";
+      const room = t.meal_request?.patient?.room_number ?? "";
       const matchSearch = !q || name.toLowerCase().includes(q) || room.toLowerCase().includes(q);
       const matchView =
         view === "all" ? true :
@@ -178,13 +179,14 @@ export function KitchenPanel() {
                       <button
                         className="flex-1 flex items-center justify-between gap-3 text-left min-w-0"
                         onClick={() => setExpandedId(expandedId === tray.id ? null : tray.id)}
+                        aria-expanded={expandedId === tray.id}
                       >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <ChefHat className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <p className="text-sm font-medium truncate">{tray.meal_requests?.patients?.name}</p>
+                            <p className="text-sm font-medium truncate">{tray.meal_request?.patient?.name}</p>
                             <span className="text-xs text-muted-foreground shrink-0">
-                              Room {tray.meal_requests?.patients?.room_number || "—"}
+                              Room {tray.meal_request?.patient?.room_number ?? "—"}
                             </span>
                           </div>
                           <TrayTimeline tray={tray} />
@@ -202,7 +204,7 @@ export function KitchenPanel() {
                           className="shrink-0 border-kitchen/40 text-kitchen hover:bg-kitchen/10 hover:text-kitchen"
                           onClick={() => handleAdvance(tray)}
                           disabled={advanceTray.isPending}
-                          title={`Advance to: ${nextStatus}`}
+                          aria-label={`Advance tray to ${nextStatus}`}
                         >
                           <ArrowRight className="h-3.5 w-3.5 mr-1" />
                           Advance

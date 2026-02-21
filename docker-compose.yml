@@ -17,7 +17,9 @@ services:
       retries: 10
 
   server:
-    build: ./server
+    build:
+      context: ./server
+      target: dev
     ports:
       - "3001:3001"
     environment:
@@ -33,11 +35,18 @@ services:
         condition: service_healthy
     volumes:
       - ./server/src:/app/src
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/api/health').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
+      target: dev
     ports:
       - "8080:8080"
     environment:
@@ -46,11 +55,18 @@ services:
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
     depends_on:
-      - server
+      server:
+        condition: service_healthy
     volumes:
       - ./src:/app/src
       - ./public:/app/public
       - ./index.html:/app/index.html
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
 volumes:
   pgdata:

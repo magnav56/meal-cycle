@@ -1,25 +1,35 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+  const headers: Record<string, string> = {};
 
-  const body = await res.json();
-
-  if (!res.ok) {
-    throw new Error(body.error || `Request failed: ${res.status}`);
+  if (options?.method && options.method !== "GET") {
+    headers["Content-Type"] = "application/json";
   }
 
-  return body as T;
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: { ...headers, ...(options?.headers as Record<string, string>) },
+  });
+
+  if (!res.ok) {
+    let error = `Request failed: ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body.error) error = body.error;
+    } catch {
+      // response body wasn't JSON
+    }
+    throw new Error(error);
+  }
+
+  if (res.status === 204 || res.headers.get("content-length") === "0") {
+    return undefined as T;
+  }
+
+  return (await res.json()) as T;
 }
 
-/**
- * Typed HTTP client. All frontend data fetching goes through this object.
- * In dev, Vite proxies `/api` to the Express backend (see vite.config.ts).
- * Errors are thrown as `Error` — handle in mutation `onError` or try/catch.
- */
 export const api = {
   get: <T>(path: string) => request<T>(path),
 
@@ -28,4 +38,7 @@ export const api = {
 
   patch: <T>(path: string, data: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(data) }),
+
+  delete: <T>(path: string) =>
+    request<T>(path, { method: "DELETE" }),
 };

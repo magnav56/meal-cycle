@@ -22,7 +22,7 @@ export function PageControls({ page, totalPages, onPage }: PageControlsProps) {
 
   return (
     <div className="flex items-center justify-center gap-1 pt-2">
-      <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => onPage(page - 1)} disabled={page === 1}>
+      <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => onPage(page - 1)} disabled={page === 1} aria-label="Previous page">
         <ChevronLeft className="h-4 w-4" />
       </Button>
       {getPages(page, totalPages).map((p, i) =>
@@ -48,6 +48,7 @@ export function PageControls({ page, totalPages, onPage }: PageControlsProps) {
         className="h-8 w-8 p-0"
         onClick={() => onPage(page + 1)}
         disabled={page === totalPages}
+        aria-label="Next page"
       >
         <ChevronRight className="h-4 w-4" />
       </Button>

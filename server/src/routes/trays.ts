@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { z } from "zod";
 import pool from "../db.js";
 
 const router = Router();
@@ -23,14 +24,14 @@ const TRAY_WITH_RELATIONS = `
     t.*,
     json_build_object(
       'id', mr.id, 'patient_id', mr.patient_id, 'status', mr.status,
-      'rejection_reason', mr.rejection_reason, 'finalized_at', mr.finalized_at,
+      'finalized_at', mr.finalized_at,
       'created_at', mr.created_at,
-      'patients', json_build_object(
+      'patient', json_build_object(
         'id', p.id, 'name', p.name, 'room_number', p.room_number,
         'diet_order', p.diet_order, 'allergies', p.allergies,
         'updated_at', p.updated_at
       )
-    ) AS meal_requests
+    ) AS meal_request
   FROM trays t
   JOIN meal_requests mr ON t.request_id = mr.id
   JOIN patients p ON mr.patient_id = p.id
@@ -39,7 +40,7 @@ const TRAY_WITH_RELATIONS = `
 router.get("/", async (_req, res) => {
   try {
     const { rows } = await pool.query(
-      `${TRAY_WITH_RELATIONS} ORDER BY t.created_at DESC`
+      `${TRAY_WITH_RELATIONS} ORDER BY t.created_at DESC`,
     );
     res.json(rows);
   } catch (err) {
@@ -50,11 +51,17 @@ router.get("/", async (_req, res) => {
 
 /**
  * Advances a tray to the next status in the lifecycle:
- * Preparation Started → Accuracy Validated → En Route → Delivered → Retrieved
+ * Preparation Started -> Accuracy Validated -> En Route -> Delivered -> Retrieved
  */
 router.patch("/:id/advance", async (req, res) => {
+  const idResult = z.string().uuid().safeParse(req.params.id);
+  if (!idResult.success) {
+    res.status(400).json({ error: "Invalid tray ID" });
+    return;
+  }
+
   try {
-    const { id } = req.params;
+    const id = idResult.data;
 
     const {
       rows: [tray],
@@ -64,7 +71,7 @@ router.patch("/:id/advance", async (req, res) => {
       return;
     }
 
-    const currentIdx = TRAY_STATUSES.indexOf(tray.status);
+    const currentIdx = TRAY_STATUSES.indexOf(tray.status as string);
     if (currentIdx >= TRAY_STATUSES.length - 1) {
       res.status(400).json({ error: "Tray already at final status" });
       return;
@@ -79,10 +86,9 @@ router.patch("/:id/advance", async (req, res) => {
 
     await pool.query(updateQuery, [id, nextStatus]);
 
-    const { rows: [full] } = await pool.query(
-      `${TRAY_WITH_RELATIONS} WHERE t.id = $1`,
-      [id]
-    );
+    const {
+      rows: [full],
+    } = await pool.query(`${TRAY_WITH_RELATIONS} WHERE t.id = $1`, [id]);
 
     res.json(full);
   } catch (err) {

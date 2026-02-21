@@ -22,9 +22,8 @@ CREATE TABLE patients (
 
 CREATE TABLE meal_requests (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
-  patient_id UUID NOT NULL REFERENCES patients(id),
-  status TEXT NOT NULL DEFAULT 'Draft' CHECK (status IN ('Draft', 'Validated', 'Rejected', 'Finalized')),
-  rejection_reason TEXT,
+  patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE RESTRICT,
+  status TEXT NOT NULL DEFAULT 'Finalized' CHECK (status IN ('Finalized')),
   finalized_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -32,8 +31,7 @@ CREATE TABLE meal_requests (
 CREATE TABLE request_items (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   request_id UUID NOT NULL REFERENCES meal_requests(id) ON DELETE CASCADE,
-  recipe_id UUID NOT NULL REFERENCES recipes(id),
-  quantity INT NOT NULL DEFAULT 1
+  recipe_id UUID NOT NULL REFERENCES recipes(id)
 );
 
 CREATE TABLE trays (
@@ -47,6 +45,12 @@ CREATE TABLE trays (
   retrieved_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Indexes on foreign key columns used in JOINs
+CREATE INDEX idx_meal_requests_patient_id ON meal_requests(patient_id);
+CREATE INDEX idx_request_items_request_id ON request_items(request_id);
+CREATE INDEX idx_request_items_recipe_id ON request_items(recipe_id);
+CREATE INDEX idx_trays_request_id ON trays(request_id);
 
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$

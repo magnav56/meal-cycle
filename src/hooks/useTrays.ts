@@ -6,6 +6,7 @@ export function useTrays() {
   return useQuery({
     queryKey: ["trays"],
     queryFn: () => api.get<Tray[]>("/api/trays"),
+    refetchInterval: 30_000,
   });
 }
 

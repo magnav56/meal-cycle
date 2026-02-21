@@ -1,73 +1,114 @@
-# Welcome to your Lovable project
+# MealFlow
 
-## Project info
+A hospital meal management system that coordinates meal requests between clinical staff, the kitchen, and tray assembly. It tracks patients, their dietary restrictions and allergies, meal requests, recipes, and tray delivery statuses in real time.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Tech Stack
 
-## How can I edit this code?
+| Layer | Technology |
+|---|---|
+| Frontend | React 18 + Vite + TypeScript |
+| UI | shadcn/ui (Radix UI + Tailwind CSS) |
+| Server state | TanStack Query (React Query v5) |
+| Routing | React Router DOM v6 |
+| Backend | Express + TypeScript |
+| Database | PostgreSQL 16 |
+| Testing | Vitest + Testing Library |
 
-There are several ways of editing your application.
+## Prerequisites
 
-**Use Lovable**
+- [Node.js](https://nodejs.org/) v18+ and npm
+- [Docker](https://www.docker.com/) and Docker Compose (for the recommended full-stack setup)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+### Option 1 — Full stack with Docker (recommended)
 
-**Use your preferred IDE**
+Starts the PostgreSQL database, Express API server, and Vite frontend together with live-reload enabled.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+```bash
+docker-compose up
+```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:8080 |
+| API server | http://localhost:3001 |
+| PostgreSQL | localhost:5432 |
 
-Follow these steps:
+The database is automatically seeded from `db/init.sql` on first run.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Option 2 — Frontend only
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Use this if you already have a backend running elsewhere.
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The dev server starts at **http://localhost:8080** and proxies `/api/*` requests to `http://localhost:3001`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Option 3 — Backend only
 
-**Use GitHub Codespaces**
+```bash
+cd server
+npm install
+npm run dev
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+The API server starts at **http://localhost:3001**.
 
-## What technologies are used for this project?
+You will need a PostgreSQL instance running and the following environment variables set (see `docker-compose.yml` for reference values):
 
-This project is built with:
+```
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=mealflow
+DB_USER=mealflow
+DB_PASSWORD=mealflow
+PORT=3001
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Available Scripts
 
-## How can I deploy this project?
+Run these from the project root:
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the Vite frontend dev server |
+| `npm run build` | Production build |
+| `npm run preview` | Preview the production build locally |
+| `npm run lint` | Run ESLint |
+| `npm test` | Run the test suite once |
+| `npm run test:watch` | Run tests in watch mode |
 
-## Can I connect a custom domain to my Lovable project?
+## Project Structure
 
-Yes, you can!
+```
+meal-cycle/
+├── src/
+│   ├── components/       # Feature and UI components
+│   │   └── ui/           # shadcn/ui primitives
+│   ├── hooks/            # TanStack Query hooks (one file per domain)
+│   ├── lib/
+│   │   ├── api.ts        # HTTP client
+│   │   ├── types.ts      # Shared TypeScript interfaces
+│   │   └── utils.ts      # Utility helpers
+│   ├── pages/            # Route-level components
+│   └── test/             # Vitest setup and test files
+├── server/
+│   └── src/
+│       ├── routes/       # Express route handlers (one file per resource)
+│       ├── db.ts         # PostgreSQL connection pool
+│       └── index.ts      # Express app entry point
+├── db/
+│   └── init.sql          # Database schema and seed data
+├── docker-compose.yml
+└── Dockerfile
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Environment Variables
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+| Variable | Default | Description |
+|---|---|---|
+| `VITE_API_URL` | *(empty)* | API base URL — leave empty to use the Vite proxy in development |

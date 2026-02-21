@@ -1,59 +1,39 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { usePatients } from "@/hooks/usePatients";
 import { useRecipes, useMealRequests, useCreateMealRequest, useRequestItems } from "@/hooks/useMealRequests";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ClipboardPlus, AlertTriangle, Check, X, Eye } from "lucide-react";
+import { PageControls } from "@/components/PageControls";
+import { ClipboardPlus, AlertTriangle, Check, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { MealRequest } from "@/lib/types";
 
-function RequestDetailDialog({ request }: { request: MealRequest }) {
-  const { data: items } = useRequestItems(request.id);
+const PAGE_SIZE = 8;
+
+function ExpandedDetail({ requestId }: { requestId: string }) {
+  const { data: items } = useRequestItems(requestId);
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Request Details</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 pt-2">
-          <p className="text-sm"><span className="font-medium">Patient:</span> {request.patients?.name}</p>
-          <p className="text-sm"><span className="font-medium">Status:</span> <StatusBadge status={request.status} /></p>
-          {request.rejection_reason && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Validation Failed</AlertTitle>
-              <AlertDescription className="whitespace-pre-line text-sm">{request.rejection_reason}</AlertDescription>
-            </Alert>
-          )}
-          <div>
-            <p className="font-medium text-sm mb-1">Items:</p>
-            {items?.map((item) => (
-              <div key={item.id} className="text-sm text-muted-foreground">• {item.recipes?.name}</div>
-            ))}
-          </div>
+    <div className="px-4 pb-3 pt-2 border-t border-border/50">
+      <p className="text-xs font-medium text-muted-foreground mb-2">Items</p>
+      {items?.length ? (
+        <div className="space-y-1">
+          {items.map((item) => (
+            <div key={item.id} className="text-sm text-foreground">
+              • {item.recipes?.name}
+            </div>
+          ))}
         </div>
-      </DialogContent>
-    </Dialog>
+      ) : (
+        <p className="text-sm text-muted-foreground">No items</p>
+      )}
+    </div>
   );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const cls = {
-    Finalized: "bg-success text-success-foreground",
-    Rejected: "bg-destructive text-destructive-foreground",
-    Draft: "bg-muted text-muted-foreground",
-    Validated: "bg-clinical text-clinical-foreground",
-  }[status] || "";
-  return <Badge className={cls}>{status}</Badge>;
 }
 
 export function MealRequestPanel() {
@@ -68,10 +48,14 @@ export function MealRequestPanel() {
   const [selectedRecipes, setSelectedRecipes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const admittedPatients = patients?.filter((p) => p.status === "Admitted") || [];
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const allPatients = patients || [];
 
   const toggleRecipe = (id: string) => {
-    setSelectedRecipes((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+    setSelectedRecipes((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   };
 
   const handleSubmit = async () => {
@@ -88,6 +72,21 @@ export function MealRequestPanel() {
       toast({ title: "Request rejected", description: "See details in the form.", variant: "destructive" });
     }
   };
+
+  const filtered = useMemo(() => {
+    if (!requests) return [];
+    const q = search.toLowerCase();
+    return requests.filter((r) => {
+      const matchSearch = !q || (r.patients?.name || "").toLowerCase().includes(q);
+      return r.status === "Finalized" && matchSearch;
+    });
+  }, [requests, search]);
+
+  useEffect(() => setPage(1), [search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const hasActiveFilters = !!search;
 
   return (
     <div className="space-y-4">
@@ -110,10 +109,14 @@ export function MealRequestPanel() {
               <div className="space-y-2">
                 <Label>Patient</Label>
                 <Select value={patientId} onValueChange={setPatientId}>
-                  <SelectTrigger><SelectValue placeholder="Select patient" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select patient" />
+                  </SelectTrigger>
                   <SelectContent>
-                    {admittedPatients.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name} — Room {p.room_number || "?"} ({p.diet_order})</SelectItem>
+                    {allPatients.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} — Room {p.room_number || "?"} ({p.diet_order})
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -128,8 +131,16 @@ export function MealRequestPanel() {
                         <p className="text-sm font-medium">{r.name}</p>
                         <p className="text-xs text-muted-foreground">{r.description}</p>
                         <div className="flex gap-1 mt-1 flex-wrap">
-                          {r.allergens.map((a) => <Badge key={a} variant="destructive" className="text-[10px]">{a}</Badge>)}
-                          {r.diet_tags.map((d) => <Badge key={d} variant="secondary" className="text-[10px]">{d}</Badge>)}
+                          {r.allergens.map((a) => (
+                            <Badge key={a} variant="destructive" className="text-[10px]">
+                              {a}
+                            </Badge>
+                          ))}
+                          {r.diet_tags.map((d) => (
+                            <Badge key={d} variant="secondary" className="text-[10px]">
+                              {d}
+                            </Badge>
+                          ))}
                         </div>
                       </div>
                     </label>
@@ -157,32 +168,68 @@ export function MealRequestPanel() {
         </Dialog>
       </div>
 
+      {/* Search */}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Search by patient name…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={!hasActiveFilters}
+          onClick={() => setSearch("")}
+        >
+          Clear
+        </Button>
+      </div>
+
       {isLoading ? (
         <p className="text-muted-foreground text-sm">Loading requests...</p>
-      ) : !requests?.length ? (
-        <Card><CardContent className="py-8 text-center text-muted-foreground">No meal requests yet.</CardContent></Card>
+      ) : !filtered.length ? (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            {requests?.length ? "No requests match your filters." : "No meal requests yet."}
+          </CardContent>
+        </Card>
       ) : (
-        <div className="space-y-2">
-          {requests.map((r) => (
-            <Card key={r.id} className={`border-l-4 ${r.status === "Finalized" ? "border-l-success" : r.status === "Rejected" ? "border-l-destructive" : "border-l-meal"}`}>
-              <CardContent className="py-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {r.status === "Finalized" ? <Check className="h-4 w-4 text-success" /> : r.status === "Rejected" ? <X className="h-4 w-4 text-destructive" /> : null}
-                  <div>
-                    <p className="text-sm font-medium">{r.patients?.name || "Unknown"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(r.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <StatusBadge status={r.status} />
-                  <RequestDetailDialog request={r} />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <>
+          <p className="text-xs text-muted-foreground">
+            {filtered.length} request{filtered.length !== 1 ? "s" : ""} found
+          </p>
+          <div className="space-y-2">
+            {paginated.map((r) => (
+              <Card key={r.id} className="border-l-4 border-l-success">
+                <CardContent className="py-3 px-4">
+                  <button
+                    className="w-full flex items-center justify-between gap-3 text-left"
+                    onClick={() => setExpandedId(expandedId === r.id ? null : r.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Check className="h-4 w-4 text-success shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium">{r.patients?.name || "Unknown"}</p>
+                        <p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString()}</p>
+                      </div>
+                    </div>
+                    {expandedId === r.id ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                    )}
+                  </button>
+                </CardContent>
+                {expandedId === r.id && <ExpandedDetail requestId={r.id} />}
+              </Card>
+            ))}
+          </div>
+          <PageControls page={page} totalPages={totalPages} onPage={setPage} />
+        </>
       )}
     </div>
   );

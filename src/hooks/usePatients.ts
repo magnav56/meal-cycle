@@ -1,29 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Patient } from "@/lib/types";
 
 export function usePatients() {
   return useQuery({
     queryKey: ["patients"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("patients")
-        .select("*")
-        .order("admitted_at", { ascending: false });
-      if (error) throw error;
-      return data as Patient[];
-    },
+    queryFn: () => api.get<Patient[]>("/api/patients"),
   });
 }
 
 export function useCreatePatient() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (patient: { name: string; room_number: string; diet_order: string; allergies: string[] }) => {
-      const { data, error } = await supabase.from("patients").insert(patient).select().single();
-      if (error) throw error;
-      return data as Patient;
-    },
+    mutationFn: (patient: { name: string; room_number: string; diet_order: string; allergies: string[]; clinical_state: string }) =>
+      api.post<Patient>("/api/patients", patient),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["patients"] }),
   });
 }
@@ -31,11 +21,8 @@ export function useCreatePatient() {
 export function useUpdatePatient() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Patient> & { id: string }) => {
-      const { data, error } = await supabase.from("patients").update(updates).eq("id", id).select().single();
-      if (error) throw error;
-      return data as Patient;
-    },
+    mutationFn: ({ id, ...updates }: Partial<Patient> & { id: string }) =>
+      api.patch<Patient>(`/api/patients/${id}`, updates),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["patients"] }),
   });
 }

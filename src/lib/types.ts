@@ -1,11 +1,17 @@
+/**
+ * Shared types mirroring the PostgreSQL schema (snake_case column names).
+ * Optional relation fields (e.g. `patients?` on MealRequest) use the table
+ * name as the key to match the json_build_object alias from the SQL queries.
+ */
+
 export interface Patient {
   id: string;
   name: string;
   room_number: string | null;
   diet_order: string;
   allergies: string[];
-  status: 'Admitted' | 'Discharged';
-  admitted_at: string;
+  clinical_state: string;
+  created_at: string;
   updated_at: string;
 }
 
@@ -65,6 +71,15 @@ export const DIET_OPTIONS = [
   'Renal',
   'Pureed',
   'Liquid',
+] as const;
+
+export const CLINICAL_STATE_OPTIONS = [
+  'Stable',
+  'Critical',
+  'Observation',
+  'Post-Op',
+  'Discharge Pending',
+  'NPO',
 ] as const;
 
 export const ALLERGY_OPTIONS = [

@@ -177,7 +177,7 @@ export function KitchenPanel() {
                   <CardContent className="py-3 px-4">
                     <div className="flex items-center gap-2">
                       <button
-                        className="flex-1 flex items-center justify-between gap-3 text-left min-w-0"
+                        className="flex-1 text-left min-w-0"
                         onClick={() => setExpandedId(expandedId === tray.id ? null : tray.id)}
                         aria-expanded={expandedId === tray.id}
                       >
@@ -191,11 +191,6 @@ export function KitchenPanel() {
                           </div>
                           <TrayTimeline tray={tray} />
                         </div>
-                        {expandedId === tray.id ? (
-                          <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                        )}
                       </button>
                       {nextStatus && (
                         <Button
@@ -210,6 +205,18 @@ export function KitchenPanel() {
                           Advance
                         </Button>
                       )}
+                      <button
+                        className="shrink-0 p-1 rounded hover:bg-muted"
+                        onClick={() => setExpandedId(expandedId === tray.id ? null : tray.id)}
+                        aria-expanded={expandedId === tray.id}
+                        aria-label={expandedId === tray.id ? "Collapse tray details" : "Expand tray details"}
+                      >
+                        {expandedId === tray.id ? (
+                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </button>
                     </div>
                   </CardContent>
                   {expandedId === tray.id && <ExpandedDetail tray={tray} />}
